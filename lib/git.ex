@@ -1,7 +1,30 @@
 defmodule Git do
   @type error :: {:error, Git.Error}
+  @type arg :: String.t | [String.t]
   @type cli_arg :: String.t | [String.t]
   @type path :: String.t
+
+  @doc """
+
+  """
+  @spec exists?(arg) :: true | false
+  def exists?(path) do
+    path = Path.expand(path)
+    git_dir = Path.expand(path <> "/.git")
+
+    File.exists?(path) and File.exists?(git_dir)
+  end
+
+  @spec open(arg) ::  {:ok, Git.Repository.t} | error
+  def open(path) do
+    case exists?(path) do
+      true ->
+        {:ok, %Git.Repository{path: path}}
+
+      _ ->
+        {:error, "Repository does not exists"}
+    end
+  end
 
   @doc """
   Clones the repository. The first argument can be `url` or `[url, path]`.
@@ -9,10 +32,17 @@ defmodule Git do
   """
   @spec clone(cli_arg) ::  {:ok, Git.Repository.t} | error
   def clone(args) do
-    execute_command nil, "clone", args, fn _ ->
-      args = if is_list(args), do: args, else: [args]
-      path = (Enum.at(args, 1) || args |> Enum.at(0) |> Path.basename |> Path.rootname) |> Path.expand
-      {:ok, %Git.Repository{path: path}}
+    args = if is_list(args), do: args, else: [args]
+    path = (Enum.at(args, 1) || args |> Enum.at(0) |> Path.basename |> Path.rootname) |> Path.expand
+
+    case exists?(path) do
+      true ->
+        {:ok, %Git.Repository{path: path}}
+
+      _ ->
+        execute_command nil, "clone", args, fn _ ->
+          {:ok, %Git.Repository{path: path}}
+        end
     end
   end
 
